@@ -1,6 +1,6 @@
 """
 QuantClaw Data Seeder
-Pulls real A-share market data from AKShare and populates the database.
+Pulls real A-share market data via configured provider (EastMoney/BaoStock) and populates the database.
 Run: cd backend && python -m scripts.seed_data
 """
 import sys

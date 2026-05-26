@@ -48,7 +48,10 @@ class RealtimeService:
         if not self._is_trading_time():
             return False
         if self._fail_count >= 5:
-            return False
+            if self._last_refresh and (datetime.now() - self._last_refresh).total_seconds() > 300:
+                self._fail_count = 0
+            else:
+                return False
         return True
 
     def refresh_indices(self) -> None:

@@ -15,7 +15,7 @@ _HEADERS = {
 }
 _TIMEOUT = 15
 _MAX_RETRIES = 3
-_RETRY_DELAY = 5
+_RETRY_DELAY = 15
 
 
 def _get(url: str, params: dict | None = None) -> dict | None:
@@ -62,7 +62,10 @@ class EastmoneyProvider(AbstractProvider):
                 "change_pct": float(change_pct) if change_pct and change_pct != "-" else 0,
                 "market": market, "is_st": is_st, "list_date": None, "industry": industry,
             })
-        return pd.DataFrame(records)
+        df = pd.DataFrame(records)
+        if len(df) < 1000:
+            logger.warning(f"Stock list only returned {len(df)} records, may be rate-limited")
+        return df
 
     def fetch_daily_klines(self, code: str, start_date: str, end_date: str) -> pd.DataFrame:
         market = "1" if code.startswith("6") else "0"
