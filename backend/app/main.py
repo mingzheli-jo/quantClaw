@@ -10,6 +10,9 @@ from app.database import Base, engine, SessionLocal
 from app.models.system import User
 from app.scheduler.setup import start_scheduler, shutdown_scheduler
 from app.utils.security import hash_password
+from app.services.data.providers.base import DataSourceManager
+from app.services.data.providers.eastmoney import EastmoneyProvider
+from app.services.data.providers.baostock_provider import BaostockProvider
 import app.models  # noqa: F401
 
 
@@ -27,6 +30,8 @@ def _seed_admin():
 async def lifespan(app: FastAPI):
     Base.metadata.create_all(bind=engine)
     _seed_admin()
+    DataSourceManager.register("eastmoney", EastmoneyProvider())
+    DataSourceManager.register("baostock", BaostockProvider())
     start_scheduler()
     yield
     shutdown_scheduler()
