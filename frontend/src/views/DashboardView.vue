@@ -1,5 +1,6 @@
 <template>
   <div class="dashboard">
+    <RealtimeBar />
     <!-- Row 1: Temperature + Index cards -->
     <div class="dash-row dash-row-top">
       <div class="card card-gauge">
@@ -111,6 +112,7 @@ import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import * as echarts from 'echarts'
 import { fetchOverview, type OverviewData } from '@/api/dashboard'
 import { fetchTodaySignals, type SignalItem } from '@/api/signal'
+import RealtimeBar from '@/components/realtime/RealtimeBar.vue'
 
 const gaugeRef = ref<HTMLElement>()
 const accRef = ref<HTMLElement>()
