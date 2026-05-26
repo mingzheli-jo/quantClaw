@@ -4,7 +4,8 @@ from sqlalchemy.orm import Session
 from app.api.deps import get_current_user, get_db
 from app.config import settings as app_settings
 from app.models.system import StrategyConfig, User
-from app.schemas.settings import NotifySettings, NotifyTestRequest, StrategySettings
+from app.schemas.settings import DataSourceSettings, NotifySettings, NotifyTestRequest, StrategySettings
+from app.services.data.providers.base import DataSourceManager
 from app.services.notify.feishu import FeishuBot
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
@@ -71,3 +72,20 @@ def test_notify(body: NotifyTestRequest, user: User = Depends(get_current_user))
     bot = FeishuBot(app_settings.feishu_webhook_url)
     ok = bot.send_text(body.message)
     return {"success": ok}
+
+
+@router.get("/data-source", response_model=DataSourceSettings)
+def get_data_source(user: User = Depends(get_current_user)):
+    return DataSourceSettings(
+        source=DataSourceManager.get_source_name(),
+        available=DataSourceManager.available_sources(),
+    )
+
+
+@router.put("/data-source", response_model=DataSourceSettings)
+def set_data_source(body: DataSourceSettings, user: User = Depends(get_current_user)):
+    DataSourceManager.set_source(body.source)
+    return DataSourceSettings(
+        source=DataSourceManager.get_source_name(),
+        available=DataSourceManager.available_sources(),
+    )

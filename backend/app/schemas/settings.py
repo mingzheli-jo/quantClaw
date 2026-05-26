@@ -14,3 +14,8 @@ class NotifySettings(BaseModel):
 
 class NotifyTestRequest(BaseModel):
     message: str = "QuantClaw 测试消息 — 飞书推送正常工作!"
+
+
+class DataSourceSettings(BaseModel):
+    source: str
+    available: list[str] = []
