@@ -9,6 +9,7 @@ from app.api.realtime import router as realtime_router
 from app.api.scan import router as scan_router
 from app.api.settings import router as settings_router
 from app.api.signal import router as signal_router
+from app.api.backtest import router as backtest_router
 from app.api.stock import router as stock_router
 
 api_router = APIRouter()
@@ -22,3 +23,4 @@ api_router.include_router(settings_router)
 api_router.include_router(learn_router)
 api_router.include_router(realtime_router)
 api_router.include_router(strategy_router)
+api_router.include_router(backtest_router)
