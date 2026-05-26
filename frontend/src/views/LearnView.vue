@@ -117,7 +117,7 @@ onMounted(async () => {
 
 <style scoped>
 .learn-page {
-  max-width: 900px;
+  width: 100%;
 }
 
 .card {

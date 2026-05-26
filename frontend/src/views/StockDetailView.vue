@@ -289,7 +289,7 @@ onUnmounted(() => {
 
 <style scoped>
 .stock-detail {
-  max-width: 1400px;
+  width: 100%;
 }
 
 .card {

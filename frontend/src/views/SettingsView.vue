@@ -242,7 +242,7 @@ onMounted(() => {
 
 <style scoped>
 .settings-page {
-  max-width: 800px;
+  width: 100%;
 }
 
 .card {
@@ -272,7 +272,8 @@ onMounted(() => {
 
 /* -- Form -- */
 .settings-form {
-  max-width: 600px;
+  width: 100%;
+  max-width: 720px;
 }
 
 .param-group {

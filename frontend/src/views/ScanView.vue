@@ -261,7 +261,7 @@ onUnmounted(() => {
 
 <style scoped>
 .scan-page {
-  max-width: 1400px;
+  width: 100%;
 }
 
 .card {
