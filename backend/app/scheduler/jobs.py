@@ -6,7 +6,7 @@ from app.database import SessionLocal
 from app.models.market import MarketSentiment, NorthFlow as NorthFlowModel, SectorDaily as SectorDailyModel
 from app.models.signal import Signal
 from app.models.stock import StockBasic, StockDaily
-from app.models.system import SchedulerLog, StrategyConfig
+from app.models.system import SchedulerLog
 from app.scheduler.trading_calendar import is_trading_day
 from app.services.data.fetcher import (
     fetch_daily_klines_batch,
@@ -213,28 +213,26 @@ def job_post_market_analyze():
         import pandas as pd
 
         from app.services.strategy.filters import hard_filter
-        from app.services.strategy.scoring import score_technical, score_fund, score_momentum, score_sentiment
+        from app.services.strategy.scoring import score_technical, score_fund, score_momentum, score_sentiment, compute_total_score
         from app.services.strategy.signal_generator import select_top_n, apply_concentration_control, build_signal_reason
         from app.services.data.indicators import calc_volume_ratio
         from app.services.position.risk import check_sell_signals, RiskConfig
         from app.learn.indicators import INDICATOR_GUIDES
 
         today = date.today()
-        DEFAULT_STRATEGY = {
-            "filter": {"min_amount_20d": 50_000_000, "max_price": 50, "min_list_days": 60},
-            "score": {"min_score": 65},
-            "risk": {
-                "stop_loss_pct": -0.05,
-                "take_profit_pct": 0.12,
-                "trailing_trigger": 0.07,
-                "trailing_drawdown": 0.03,
-                "max_hold_days": 5,
-            },
-        }
-        config = DEFAULT_STRATEGY
-        cfg_row = db.query(StrategyConfig).first()
-        if cfg_row:
-            config = cfg_row.config
+        from app.models.strategy import StrategyTemplate
+        active = db.query(StrategyTemplate).filter(StrategyTemplate.is_active == True).first()
+        if not active:
+            logger.warning("No active strategy template, using defaults")
+            filter_cfg = {"min_amount_20d": 50_000_000, "max_price": 50, "min_list_days": 60}
+            score_cfg = {"tech_weight": 0.4, "fund_weight": 0.3, "momentum_weight": 0.2, "sentiment_weight": 0.1}
+            signal_cfg = {"min_score": 65, "top_n": 3, "concentration_control": True}
+            risk_cfg = {"stop_loss_pct": -0.05, "take_profit_pct": 0.12, "trailing_trigger": 0.07, "trailing_drawdown": 0.03, "max_hold_days": 5}
+        else:
+            filter_cfg = active.filter_config
+            score_cfg = active.score_config
+            signal_cfg = active.signal_config
+            risk_cfg = active.risk_config
 
         basics = db.query(StockBasic).all()
         if not basics:
@@ -280,7 +278,7 @@ def job_post_market_analyze():
             _log_job(db, "post_market_analyze", "success", "No eligible stocks", started_at=started)
             return
         universe_df = pd.DataFrame(stocks)
-        filtered = hard_filter(universe_df, config.get("filter", {}))
+        filtered = hard_filter(universe_df, filter_cfg)
 
         scored_rows = []
         for _, row in filtered.iterrows():
@@ -333,7 +331,10 @@ def job_post_market_analyze():
                 "sector_net_flow": sector_row.net_fund_flow if sector_row else 0,
             }
             sentiment_score, sentiment_details = score_sentiment(sentiment_data)
-            total = tech_score + fund_score + momentum_score + sentiment_score
+            total = compute_total_score(
+                {"tech": tech_score, "fund": fund_score, "momentum": momentum_score, "sentiment": sentiment_score},
+                score_cfg,
+            )
             all_details = {
                 "tech": tech_details,
                 "fund": fund_details,
@@ -362,7 +363,7 @@ def job_post_market_analyze():
         scored_df = pd.DataFrame(scored_rows)
         held_codes = [p.code for p in get_active_positions(db)]
         top = apply_concentration_control(
-            select_top_n(scored_df, config.get("score", {}).get("min_score", 65)),
+            select_top_n(scored_df, min_score=signal_cfg.get("min_score", 65), top_n=signal_cfg.get("top_n", 3)),
             held_codes,
         )
 
@@ -388,7 +389,13 @@ def job_post_market_analyze():
             )
         db.commit()
 
-        risk_cfg = RiskConfig(**config.get("risk", {}))
+        risk_cfg_obj = RiskConfig(
+            stop_loss_pct=risk_cfg.get("stop_loss_pct", -0.05),
+            take_profit_pct=risk_cfg.get("take_profit_pct", 0.12),
+            trailing_trigger=risk_cfg.get("trailing_trigger", 0.07),
+            trailing_drawdown=risk_cfg.get("trailing_drawdown", 0.03),
+            max_hold_days=risk_cfg.get("max_hold_days", 5),
+        )
         positions = get_active_positions(db)
         pos_report = []
         for pos in positions:
@@ -405,7 +412,7 @@ def job_post_market_analyze():
                     "highest_price": pos.highest_price,
                     "hold_days": hold_days,
                 },
-                risk_cfg,
+                risk_cfg_obj,
             )
             advice = sell_signals[0]["reason"] if sell_signals else "继续持有"
             pos_report.append(

@@ -157,5 +157,13 @@ def score_sentiment(sentiment_data: dict) -> tuple[int, dict]:
     return min(score, 10), details
 
 
-def compute_total_score(raw_scores: dict, weights: dict) -> int:
-    return raw_scores["tech"] + raw_scores["fund"] + raw_scores["momentum"] + raw_scores["sentiment"]
+def compute_total_score(raw_scores: dict, weights: dict | None = None) -> int:
+    if weights is None:
+        return raw_scores["tech"] + raw_scores["fund"] + raw_scores["momentum"] + raw_scores["sentiment"]
+    max_scores = {"tech": 40, "fund": 30, "momentum": 20, "sentiment": 10}
+    total = 0.0
+    for key in ["tech", "fund", "momentum", "sentiment"]:
+        w = weights.get(f"{key}_weight", 0.25)
+        normalized = raw_scores[key] / max_scores[key] if max_scores[key] > 0 else 0
+        total += normalized * w
+    return int(round(total * 100))
