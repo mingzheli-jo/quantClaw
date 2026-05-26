@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+import app.models  # noqa: F401
 from app.database import Base, engine
 
 
