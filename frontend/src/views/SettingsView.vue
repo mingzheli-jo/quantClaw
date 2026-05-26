@@ -26,6 +26,32 @@
           </el-form>
         </div>
 
+        <!-- Strategy Management Card -->
+        <div class="card settings-card" style="margin-bottom: 16px;">
+          <h3 class="settings-title">策略管理</h3>
+          <div class="strategy-grid">
+            <div v-for="s in strategies" :key="s.id" class="strategy-card" :class="{ active: s.is_active }">
+              <div class="strat-header">
+                <span class="strat-name">{{ s.name }}</span>
+                <span v-if="s.is_active" class="strat-badge">当前激活</span>
+                <span v-if="s.is_builtin" class="strat-builtin">内置</span>
+              </div>
+              <p class="strat-desc">{{ s.description }}</p>
+              <div class="strat-weights">
+                <span class="weight-tag">技{{ Math.round(s.score_config.tech_weight * 100) }}</span>
+                <span class="weight-tag">资{{ Math.round(s.score_config.fund_weight * 100) }}</span>
+                <span class="weight-tag">动{{ Math.round(s.score_config.momentum_weight * 100) }}</span>
+                <span class="weight-tag">情{{ Math.round(s.score_config.sentiment_weight * 100) }}</span>
+              </div>
+              <div class="strat-actions">
+                <button v-if="!s.is_active" class="strat-btn" @click="onActivate(s.id)">激活</button>
+                <button class="strat-btn" @click="onDuplicate(s)">复制</button>
+                <button v-if="!s.is_builtin" class="strat-btn strat-btn-danger" @click="onDeleteStrategy(s.id)">删除</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="card" v-if="strategyLoaded">
           <el-form label-width="140px" label-position="left" class="settings-form">
             <!-- Filter params -->
@@ -149,6 +175,13 @@ import {
   setDataSource,
   type StrategyConfig,
 } from '@/api/settings'
+import {
+  listStrategies,
+  activateStrategy,
+  createStrategy,
+  deleteStrategy,
+  type StrategyTemplate,
+} from '@/api/strategy'
 
 const authStore = useAuthStore()
 const username = computed(() => authStore.username || '--')
@@ -158,6 +191,7 @@ const activeTab = ref('strategy')
 // Strategy
 const strategyLoaded = ref(false)
 const saving = ref(false)
+const strategies = ref<StrategyTemplate[]>([])
 const strategy = reactive<StrategyConfig>({
   filter: {},
   score: {},
@@ -225,6 +259,35 @@ async function saveStrategy() {
   }
 }
 
+async function loadStrategies() {
+  try {
+    const { data } = await listStrategies()
+    strategies.value = data
+  } catch {}
+}
+
+async function onActivate(id: number) {
+  await activateStrategy(id)
+  await loadStrategies()
+}
+
+async function onDuplicate(strategy: StrategyTemplate) {
+  await createStrategy({
+    name: strategy.name + ' (副本)',
+    description: strategy.description,
+    filter_config: strategy.filter_config,
+    score_config: strategy.score_config,
+    signal_config: strategy.signal_config,
+    risk_config: strategy.risk_config,
+  })
+  await loadStrategies()
+}
+
+async function onDeleteStrategy(id: number) {
+  await deleteStrategy(id)
+  await loadStrategies()
+}
+
 // Data Source
 const dataSource = ref('eastmoney')
 const availableSources = ref<string[]>([])
@@ -285,6 +348,7 @@ onMounted(() => {
   loadStrategy()
   loadNotify()
   loadDataSource()
+  loadStrategies()
 })
 </script>
 
@@ -437,5 +501,105 @@ onMounted(() => {
   font-size: 12px;
   color: var(--color-text-secondary);
   line-height: 1.6;
+}
+
+/* -- Strategy Management -- */
+.settings-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.strategy-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 14px;
+}
+
+.strategy-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.strategy-card.active {
+  border-color: rgba(59,130,246,0.4);
+  background: rgba(59,130,246,0.05);
+}
+
+.strat-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.strat-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.strat-badge {
+  background: #3b82f6;
+  color: #fff;
+  font-size: 11px;
+  padding: 1px 8px;
+  border-radius: 4px;
+}
+
+.strat-builtin {
+  font-size: 11px;
+  color: #8b95a5;
+  border: 1px solid rgba(255,255,255,0.1);
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.strat-desc {
+  font-size: 12px;
+  color: #8b95a5;
+  margin: 0 0 8px 0;
+  line-height: 1.4;
+}
+
+.strat-weights {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.weight-tag {
+  background: rgba(255,255,255,0.06);
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: #ccc;
+}
+
+.strat-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.strat-btn {
+  background: rgba(255,255,255,0.08);
+  border: none;
+  border-radius: 5px;
+  padding: 5px 12px;
+  color: #e0e6ed;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.strat-btn:hover {
+  background: rgba(255,255,255,0.14);
+}
+
+.strat-btn-danger {
+  color: #ef4444;
 }
 </style>
