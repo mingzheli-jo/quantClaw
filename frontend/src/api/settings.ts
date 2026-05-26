@@ -26,3 +26,16 @@ export function getNotify() {
 export function testNotify(message: string) {
   return client.post<{ success: boolean }>('/settings/notify/test', { message })
 }
+
+export interface DataSourceConfig {
+  source: string
+  available: string[]
+}
+
+export function getDataSource() {
+  return client.get<DataSourceConfig>('/settings/data-source')
+}
+
+export function setDataSource(source: string) {
+  return client.put<DataSourceConfig>('/settings/data-source', { source })
+}

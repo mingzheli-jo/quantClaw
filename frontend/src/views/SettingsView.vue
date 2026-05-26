@@ -3,6 +3,29 @@
     <el-tabs v-model="activeTab" class="dark-tabs">
       <!-- Strategy Tab -->
       <el-tab-pane label="策略参数" name="strategy">
+        <!-- Data Source Card -->
+        <div class="card" style="margin-bottom: 16px;">
+          <h3 class="group-title">数据源</h3>
+          <el-form label-width="140px" label-position="left" class="settings-form">
+            <el-form-item label="数据来源">
+              <select
+                v-model="dataSource"
+                @change="onDataSourceChange"
+                class="datasource-select"
+              >
+                <option
+                  v-for="src in availableSources"
+                  :key="src"
+                  :value="src"
+                >{{ sourceLabels[src] || src }}</option>
+              </select>
+            </el-form-item>
+            <el-form-item v-if="dataSource === 'baostock'" label=" ">
+              <span class="datasource-hint">BaoStock 不支持北向资金和板块数据，这些模块将显示为空。</span>
+            </el-form-item>
+          </el-form>
+        </div>
+
         <div class="card" v-if="strategyLoaded">
           <el-form label-width="140px" label-position="left" class="settings-form">
             <!-- Filter params -->
@@ -122,6 +145,8 @@ import {
   updateStrategy,
   getNotify,
   testNotify,
+  getDataSource,
+  setDataSource,
   type StrategyConfig,
 } from '@/api/settings'
 
@@ -200,6 +225,28 @@ async function saveStrategy() {
   }
 }
 
+// Data Source
+const dataSource = ref('eastmoney')
+const availableSources = ref<string[]>([])
+const sourceLabels: Record<string, string> = {
+  eastmoney: '东方财富 (推荐)',
+  baostock: 'BaoStock',
+}
+
+async function loadDataSource() {
+  try {
+    const { data } = await getDataSource()
+    dataSource.value = data.source
+    availableSources.value = data.available
+  } catch {}
+}
+
+async function onDataSourceChange() {
+  try {
+    await setDataSource(dataSource.value)
+  } catch {}
+}
+
 // Notification
 const notifyUrl = ref('')
 const testMsg = ref('')
@@ -237,6 +284,7 @@ async function handleTest() {
 onMounted(() => {
   loadStrategy()
   loadNotify()
+  loadDataSource()
 })
 </script>
 
@@ -362,5 +410,32 @@ onMounted(() => {
   color: var(--color-text-secondary);
   padding: 48px 0;
   font-size: 14px;
+}
+
+/* -- Data Source -- */
+.datasource-select {
+  appearance: none;
+  background: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  color: var(--color-text);
+  font-size: 13px;
+  padding: 6px 32px 6px 12px;
+  width: 240px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2366e0d6' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+
+.datasource-select:focus {
+  outline: none;
+  border-color: var(--color-accent);
+}
+
+.datasource-hint {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
 }
 </style>
