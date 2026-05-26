@@ -9,3 +9,4 @@ frontend/dist/
 *.db
 .DS_Store
 nginx/ssl/
+.omc/
