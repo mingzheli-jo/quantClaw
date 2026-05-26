@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.auth import router as auth_router
+from app.api.strategy import router as strategy_router
 from app.api.dashboard import router as dashboard_router
 from app.api.learn import router as learn_router
 from app.api.position import router as position_router
@@ -20,3 +21,4 @@ api_router.include_router(signal_router)
 api_router.include_router(settings_router)
 api_router.include_router(learn_router)
 api_router.include_router(realtime_router)
+api_router.include_router(strategy_router)
