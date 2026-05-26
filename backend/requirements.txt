@@ -9,6 +9,5 @@ bcrypt==4.2.1
 httpx==0.28.1
 akshare>=1.16.72
 pandas==2.2.3
-pandas-ta>=0.4.67b0
 apscheduler==3.10.4
 python-multipart==0.0.20
