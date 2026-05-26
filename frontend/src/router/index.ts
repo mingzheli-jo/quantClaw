@@ -9,6 +9,7 @@ const router = createRouter({
     { path: '/stock/:code', name: 'stock', component: () => import('@/views/StockDetailView.vue') },
     { path: '/position', name: 'position', component: () => import('@/views/PositionView.vue') },
     { path: '/realtime', name: 'realtime', component: () => import('@/views/RealtimeView.vue') },
+    { path: '/backtest', name: 'backtest', component: () => import('@/views/BacktestView.vue') },
     { path: '/learn', name: 'learn', component: () => import('@/views/LearnView.vue') },
     { path: '/settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
   ],

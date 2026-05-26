@@ -47,6 +47,7 @@ import {
   Search,
   Wallet,
   Monitor,
+  TrendCharts,
   Reading,
   Setting,
   SwitchButton,
@@ -64,6 +65,7 @@ const navItems = [
   { path: '/scan', label: '选股扫描', icon: Search },
   { path: '/position', label: '持仓管理', icon: Wallet },
   { path: '/realtime', label: '实时监控', icon: Monitor },
+  { path: '/backtest', label: '策略回测', icon: TrendCharts },
   { path: '/learn', label: '学习中心', icon: Reading },
   { path: '/settings', label: '系统设置', icon: Setting },
 ]
