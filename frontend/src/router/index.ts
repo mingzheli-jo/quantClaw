@@ -8,6 +8,7 @@ const router = createRouter({
     { path: '/scan', name: 'scan', component: () => import('@/views/ScanView.vue') },
     { path: '/stock/:code', name: 'stock', component: () => import('@/views/StockDetailView.vue') },
     { path: '/position', name: 'position', component: () => import('@/views/PositionView.vue') },
+    { path: '/realtime', name: 'realtime', component: () => import('@/views/RealtimeView.vue') },
     { path: '/learn', name: 'learn', component: () => import('@/views/LearnView.vue') },
     { path: '/settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
   ],
