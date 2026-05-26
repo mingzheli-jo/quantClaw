@@ -2,17 +2,12 @@
 set -e
 
 DOMAIN="quant.azhefuye.online"
-APP_PORT=8000
-NGINX_CONF="/etc/nginx/sites-available/${DOMAIN}"
-NGINX_LINK="/etc/nginx/sites-enabled/${DOMAIN}"
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+CADDY_FILE="/opt/wechat-batch-rewriter/Caddyfile"
+CADDY_CONTAINER="wechat-batch-rewriter-caddy-1"
+NETWORK_NAME="caddy-net"
 
 # --- Pre-flight checks ---
-if [ "$(id -u)" -ne 0 ]; then
-    echo "ERROR: Please run with sudo:  sudo bash start.sh"
-    exit 1
-fi
-
 if [ ! -f "$PROJECT_DIR/.env" ]; then
     echo "==> .env not found, creating from .env.example..."
     cp "$PROJECT_DIR/.env.example" "$PROJECT_DIR/.env"
@@ -21,78 +16,62 @@ if [ ! -f "$PROJECT_DIR/.env" ]; then
     exit 1
 fi
 
-# --- Step 1: Install Nginx & Certbot if missing ---
-echo "==> Checking Nginx and Certbot..."
-if ! command -v nginx &>/dev/null; then
-    echo "    Installing Nginx..."
-    apt-get update -qq && apt-get install -y -qq nginx
+# --- Step 1: Create shared Docker network ---
+echo "==> Creating shared network: ${NETWORK_NAME}..."
+docker network create "$NETWORK_NAME" 2>/dev/null || true
+
+# --- Step 2: Connect Caddy to shared network ---
+echo "==> Connecting Caddy to ${NETWORK_NAME}..."
+docker network connect "$NETWORK_NAME" "$CADDY_CONTAINER" 2>/dev/null || true
+
+# --- Step 3: Add QuantClaw to Caddyfile ---
+if ! grep -q "$DOMAIN" "$CADDY_FILE" 2>/dev/null; then
+    echo "==> Adding ${DOMAIN} to Caddyfile..."
+    cat >> "$CADDY_FILE" <<CADDY
+
+${DOMAIN} {
+    encode zstd gzip
+
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
+    }
+
+    reverse_proxy quantclaw-quantclaw-1:8000
+
+    log {
+        output file /data/quant-access.log
+        format json
+    }
+}
+CADDY
+    echo "    Caddyfile updated."
+else
+    echo "==> ${DOMAIN} already in Caddyfile, skipping."
 fi
 
-if ! command -v certbot &>/dev/null; then
-    echo "    Installing Certbot..."
-    apt-get update -qq && apt-get install -y -qq certbot python3-certbot-nginx
-fi
-
-# --- Step 2: Build and start Docker containers ---
+# --- Step 4: Build and start QuantClaw ---
 echo "==> Building and starting containers..."
 cd "$PROJECT_DIR"
 docker compose down --remove-orphans 2>/dev/null || true
 docker compose build
 docker compose up -d
 
-echo "==> Waiting for app to be ready..."
-for i in $(seq 1 30); do
-    if curl -sf http://127.0.0.1:${APP_PORT}/api/health >/dev/null 2>&1 || \
-       curl -sf http://127.0.0.1:${APP_PORT}/docs >/dev/null 2>&1 || \
-       curl -sf http://127.0.0.1:${APP_PORT}/ >/dev/null 2>&1; then
-        echo "    App is up!"
-        break
-    fi
-    if [ "$i" -eq 30 ]; then
-        echo "    WARNING: App may not be fully ready yet, continuing with Nginx setup..."
-    fi
-    sleep 2
-done
+# --- Step 5: Reload Caddy to pick up new config ---
+echo "==> Reloading Caddy..."
+docker exec "$CADDY_CONTAINER" caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile 2>/dev/null || \
+    docker restart "$CADDY_CONTAINER"
 
-# --- Step 3: Configure Nginx reverse proxy ---
-echo "==> Configuring Nginx for ${DOMAIN}..."
-cat > "$NGINX_CONF" <<NGINX
-server {
-    listen 80;
-    server_name ${DOMAIN};
-
-    client_max_body_size 10M;
-
-    location / {
-        proxy_pass http://127.0.0.1:${APP_PORT};
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }
-}
-NGINX
-
-ln -sf "$NGINX_CONF" "$NGINX_LINK"
-nginx -t && systemctl reload nginx
-echo "    Nginx configured (HTTP)."
-
-# --- Step 4: SSL certificate ---
-CERT_DIR="/etc/letsencrypt/live/${DOMAIN}"
-if [ ! -d "$CERT_DIR" ]; then
-    echo "==> Requesting SSL certificate for ${DOMAIN}..."
-    certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect
-    echo "    SSL certificate obtained and Nginx updated."
-else
-    echo "==> SSL certificate already exists, ensuring Nginx is configured..."
-    certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos --register-unsafely-without-email --redirect --keep-existing
-    echo "    SSL verified."
+# --- Step 6: Remove host Nginx config if exists ---
+if [ -f "/etc/nginx/sites-enabled/${DOMAIN}" ]; then
+    echo "==> Cleaning up old Nginx config..."
+    rm -f "/etc/nginx/sites-enabled/${DOMAIN}" "/etc/nginx/sites-available/${DOMAIN}"
+    systemctl reload nginx 2>/dev/null || true
 fi
 
-# --- Done ---
 echo ""
 echo "========================================="
 echo "  QuantClaw is running!"
