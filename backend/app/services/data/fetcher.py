@@ -10,6 +10,7 @@ logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 500
 BATCH_DELAY = 3
+PER_STOCK_DELAY = 0.3
 
 
 def fetch_stock_basic_list() -> pd.DataFrame:
@@ -38,6 +39,7 @@ def fetch_daily_klines_batch(
             df = provider.fetch_daily_klines(code, start_date, end_date)
             if df is not None and not df.empty:
                 all_frames.append(df)
+            time.sleep(PER_STOCK_DELAY)
         if i + BATCH_SIZE < len(codes):
             time.sleep(BATCH_DELAY)
 
