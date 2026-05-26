@@ -20,6 +20,13 @@ logger = logging.getLogger(__name__)
 
 from app.database import Base, engine, SessionLocal
 from app.models import *
+from app.services.data.providers.base import DataSourceManager
+from app.services.data.providers.eastmoney import EastmoneyProvider
+from app.services.data.providers.baostock_provider import BaostockProvider
+
+DataSourceManager.register("eastmoney", EastmoneyProvider())
+DataSourceManager.register("baostock", BaostockProvider())
+
 from app.services.data.fetcher import (
     fetch_stock_basic_list,
     fetch_daily_klines_batch,
