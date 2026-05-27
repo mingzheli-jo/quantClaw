@@ -27,6 +27,17 @@ export interface StockSignal {
   reason: string
 }
 
+export interface StockSearchResult {
+  code: string
+  name: string
+  market: string
+  industry: string
+}
+
+export function searchStocks(q: string) {
+  return client.get<StockSearchResult[]>('/stock/search', { params: { q } })
+}
+
 export function fetchKline(code: string, days = 60) {
   return client.get<KlineItem[]>(`/stock/${code}/kline`, { params: { days } })
 }

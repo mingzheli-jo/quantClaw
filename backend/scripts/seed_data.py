@@ -127,9 +127,10 @@ def seed():
         else:
             logger.warning("No K-line data fetched")
 
-        # 4. Fetch north flow
-        logger.info("Fetching north flow data...")
-        north_df = fetch_north_flow(days=30)
+        # 4. Fetch north flow (always use EastMoney — BaoStock doesn't support these)
+        eastmoney = EastmoneyProvider()
+        logger.info("Fetching north flow data (via EastMoney)...")
+        north_df = eastmoney.fetch_north_flow(days=30)
         if not north_df.empty:
             north_count = 0
             for _, row in north_df.iterrows():
@@ -145,9 +146,9 @@ def seed():
             db.commit()
             logger.info(f"Inserted {north_count} north flow records")
 
-        # 5. Fetch sector daily
-        logger.info("Fetching sector data...")
-        sector_df = fetch_sector_daily()
+        # 5. Fetch sector daily (via EastMoney)
+        logger.info("Fetching sector data (via EastMoney)...")
+        sector_df = eastmoney.fetch_sector_daily()
         if not sector_df.empty:
             sector_count = 0
             for _, row in sector_df.iterrows():
@@ -167,9 +168,9 @@ def seed():
             db.commit()
             logger.info(f"Inserted {sector_count} sector records")
 
-        # 6. Fetch market sentiment
-        logger.info("Fetching market sentiment...")
-        sentiment = fetch_market_sentiment()
+        # 6. Fetch market sentiment (via EastMoney)
+        logger.info("Fetching market sentiment (via EastMoney)...")
+        sentiment = eastmoney.fetch_market_sentiment()
         if sentiment:
             existing = db.query(MarketSentiment).filter(
                 MarketSentiment.trade_date == sentiment["trade_date"]
