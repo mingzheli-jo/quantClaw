@@ -142,6 +142,67 @@
         </div>
       </el-tab-pane>
 
+      <!-- Schedule Tab -->
+      <el-tab-pane label="定时任务" name="schedules">
+        <div class="card">
+          <h3 class="group-title">任务调度配置</h3>
+          <p class="schedule-hint">修改后立即生效，无需重启服务</p>
+          <el-table :data="schedules" stripe style="margin-top: 16px">
+            <el-table-column prop="label" label="任务" width="140" />
+            <el-table-column label="执行时间" width="250">
+              <template #default="{ row }">
+                <div v-if="row.schedule_type === 'cron'" class="time-inputs">
+                  <el-input-number
+                    v-model="row.hour"
+                    :min="0" :max="23"
+                    controls-position="right"
+                    size="small"
+                    style="width: 90px"
+                    @change="onScheduleChange(row)"
+                  />
+                  <span class="time-sep">:</span>
+                  <el-input-number
+                    v-model="row.minute"
+                    :min="0" :max="59"
+                    controls-position="right"
+                    size="small"
+                    style="width: 90px"
+                    @change="onScheduleChange(row)"
+                  />
+                </div>
+                <div v-else class="time-inputs">
+                  <el-input-number
+                    v-model="row.interval_seconds"
+                    :min="10" :max="3600"
+                    :step="10"
+                    controls-position="right"
+                    size="small"
+                    style="width: 140px"
+                    @change="onScheduleChange(row)"
+                  />
+                  <span class="time-unit">秒</span>
+                </div>
+              </template>
+            </el-table-column>
+            <el-table-column label="状态" width="100">
+              <template #default="{ row }">
+                <el-switch
+                  v-model="row.enabled"
+                  @change="onScheduleChange(row)"
+                />
+              </template>
+            </el-table-column>
+            <el-table-column label="类型" width="100">
+              <template #default="{ row }">
+                <el-tag size="small" :type="row.schedule_type === 'cron' ? '' : 'success'">
+                  {{ row.schedule_type === 'cron' ? '定时' : '循环' }}
+                </el-tag>
+              </template>
+            </el-table-column>
+          </el-table>
+        </div>
+      </el-tab-pane>
+
       <!-- Account Tab -->
       <el-tab-pane label="账户设置" name="account">
         <div class="card">
@@ -173,7 +234,10 @@ import {
   testNotify,
   getDataSource,
   setDataSource,
+  fetchSchedules,
+  updateSchedule,
   type StrategyConfig,
+  type JobScheduleItem,
 } from '@/api/settings'
 import {
   listStrategies,
@@ -310,6 +374,27 @@ async function onDataSourceChange() {
   } catch {}
 }
 
+// Schedules
+const schedules = ref<JobScheduleItem[]>([])
+
+async function loadSchedules() {
+  try {
+    const { data } = await fetchSchedules()
+    schedules.value = data
+  } catch {}
+}
+
+async function onScheduleChange(row: JobScheduleItem) {
+  try {
+    await updateSchedule(row.job_id, {
+      hour: row.hour,
+      minute: row.minute,
+      interval_seconds: row.interval_seconds,
+      enabled: row.enabled,
+    })
+  } catch {}
+}
+
 // Notification
 const notifyUrl = ref('')
 const testMsg = ref('')
@@ -349,6 +434,7 @@ onMounted(() => {
   loadNotify()
   loadDataSource()
   loadStrategies()
+  loadSchedules()
 })
 </script>
 
@@ -602,4 +688,9 @@ onMounted(() => {
 .strat-btn-danger {
   color: #ef4444;
 }
+
+.schedule-hint { font-size: 13px; color: var(--color-text-secondary); margin-top: 8px; }
+.time-inputs { display: flex; align-items: center; gap: 4px; }
+.time-sep { font-size: 16px; font-weight: 700; color: var(--color-text); }
+.time-unit { font-size: 13px; color: var(--color-text-secondary); margin-left: 4px; }
 </style>

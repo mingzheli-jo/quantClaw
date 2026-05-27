@@ -39,3 +39,21 @@ export function getDataSource() {
 export function setDataSource(source: string) {
   return client.put<DataSourceConfig>('/settings/data-source', { source })
 }
+
+export interface JobScheduleItem {
+  job_id: string
+  label: string
+  schedule_type: string
+  hour: number | null
+  minute: number | null
+  interval_seconds: number | null
+  enabled: boolean
+}
+
+export function fetchSchedules() {
+  return client.get<JobScheduleItem[]>('/settings/schedules')
+}
+
+export function updateSchedule(jobId: string, data: Partial<JobScheduleItem>) {
+  return client.put<JobScheduleItem>(`/settings/schedules/${jobId}`, data)
+}
