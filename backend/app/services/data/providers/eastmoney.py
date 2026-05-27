@@ -9,19 +9,45 @@ from app.services.data.providers.base import AbstractProvider
 
 logger = logging.getLogger(__name__)
 
-_HEADERS = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-    "Referer": "https://quote.eastmoney.com/",
-}
+_USER_AGENTS = [
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36 Edg/123.0.0.0",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.4 Safari/605.1.15",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:125.0) Gecko/20100101 Firefox/125.0",
+]
+
+_REFERERS = [
+    "https://quote.eastmoney.com/",
+    "https://www.eastmoney.com/",
+    "https://data.eastmoney.com/",
+    "https://finance.eastmoney.com/",
+]
+
 _TIMEOUT = 15
 _MAX_RETRIES = 3
 _RETRY_DELAY = 15
+_MIN_DELAY = 0.3
+_MAX_DELAY = 0.8
+
+
+def _random_headers() -> dict:
+    import random
+    return {
+        "User-Agent": random.choice(_USER_AGENTS),
+        "Referer": random.choice(_REFERERS),
+    }
+
+
+def random_delay() -> None:
+    import random
+    time.sleep(random.uniform(_MIN_DELAY, _MAX_DELAY))
 
 
 def _get(url: str, params: dict | None = None) -> dict | None:
     for attempt in range(_MAX_RETRIES):
         try:
-            resp = httpx.get(url, params=params, headers=_HEADERS, timeout=_TIMEOUT)
+            resp = httpx.get(url, params=params, headers=_random_headers(), timeout=_TIMEOUT)
             resp.raise_for_status()
             return resp.json()
         except Exception as e:

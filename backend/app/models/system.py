@@ -30,5 +30,8 @@ class SchedulerLog(Base):
     job_name: Mapped[str] = mapped_column(String(50))
     status: Mapped[str] = mapped_column(String(10))
     message: Mapped[str | None] = mapped_column(Text)
+    records_collected: Mapped[int] = mapped_column(default=0)
+    details: Mapped[str | None] = mapped_column(Text)
+    error_message: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime] = mapped_column(DateTime)
     finished_at: Mapped[datetime | None] = mapped_column(DateTime)

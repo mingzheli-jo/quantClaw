@@ -79,5 +79,51 @@ class BaostockProvider(AbstractProvider):
     def fetch_sector_daily(self) -> pd.DataFrame:
         return pd.DataFrame()
 
+    def _fetch_klines_for_sentiment(self) -> pd.DataFrame:
+        import baostock as bs
+        today = date.today()
+        yesterday = today - timedelta(days=7)
+        bs.login()
+        try:
+            stock_df = self.fetch_stock_basic_list()
+            if stock_df.empty:
+                return pd.DataFrame()
+            codes = stock_df["code"].head(500).tolist()
+            records = []
+            today_str = today.strftime("%Y-%m-%d")
+            for code in codes:
+                market = "sh" if code.startswith("6") else "sz"
+                bs_code = f"{market}.{code}"
+                rs = bs.query_history_k_data_plus(
+                    bs_code, "date,pctChg",
+                    start_date=yesterday.strftime("%Y-%m-%d"),
+                    end_date=today_str,
+                    frequency="d", adjustflag="2",
+                )
+                while rs.error_code == "0" and rs.next():
+                    row = rs.get_row_data()
+                    if row[0] == today_str:
+                        pct = float(row[1]) if row[1] else 0
+                        records.append({"code": code, "change_pct": pct})
+                        break
+            return pd.DataFrame(records)
+        except Exception as e:
+            logger.error(f"BaoStock sentiment klines failed: {e}")
+            return pd.DataFrame()
+        finally:
+            bs.logout()
+
     def fetch_market_sentiment(self) -> dict:
-        return {}
+        df = self._fetch_klines_for_sentiment()
+        if df.empty or "change_pct" not in df.columns:
+            return {}
+        up = int((df["change_pct"] > 0).sum())
+        down = int((df["change_pct"] < 0).sum())
+        flat = int((df["change_pct"] == 0).sum())
+        limit_up = int((df["change_pct"] >= 9.9).sum())
+        limit_down = int((df["change_pct"] <= -9.9).sum())
+        return {
+            "trade_date": date.today(),
+            "up_count": up, "down_count": down, "flat_count": flat,
+            "limit_up": limit_up, "limit_down": limit_down,
+        }
