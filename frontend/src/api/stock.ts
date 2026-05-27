@@ -84,3 +84,7 @@ export interface CompareStock {
 export function fetchCompare(codes: string[]) {
   return client.get<CompareStock[]>('/stock/compare', { params: { codes: codes.join(',') } })
 }
+
+export function syncStock(code: string) {
+  return client.post(`/stock/${code}/sync`)
+}

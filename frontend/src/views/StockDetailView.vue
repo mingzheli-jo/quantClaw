@@ -1,15 +1,21 @@
 <template>
   <div class="stock-detail">
+    <!-- Loading -->
+    <div v-if="pageLoading" class="loading-state">
+      <el-icon class="loading-spin" :size="32"><Loading /></el-icon>
+      <p>{{ loadingText }}</p>
+    </div>
+
     <!-- Back + Title -->
     <div class="detail-header">
       <button class="back-btn" @click="router.back()">
         <el-icon :size="18"><ArrowLeft /></el-icon>
         <span>返回</span>
       </button>
-      <div class="stock-title" v-if="score">
-        <h2 class="stock-name">{{ score.stock_name }}</h2>
-        <span class="stock-code">{{ score.code }}</span>
-        <span class="total-score">综合 {{ score.score?.toFixed(1) }}</span>
+      <div class="stock-title" v-if="score || liveQuote">
+        <h2 class="stock-name">{{ score?.stock_name || liveQuote?.name || code }}</h2>
+        <span class="stock-code">{{ code }}</span>
+        <span class="total-score" v-if="score">综合 {{ score.score?.toFixed(1) }}</span>
         <el-button
           :type="isWatched ? 'warning' : 'default'"
           :icon="isWatched ? StarFilled : Star"
@@ -38,6 +44,7 @@
       </div>
     </div>
 
+    <template v-if="!pageLoading">
     <!-- K-Line + Radar row -->
     <div class="chart-row">
       <div class="card card-kline">
@@ -128,13 +135,14 @@
       </el-table>
       <div v-else class="empty-hint">暂无历史信号</div>
     </div>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Star, StarFilled } from '@element-plus/icons-vue'
+import { ArrowLeft, Star, StarFilled, Loading } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import { createChart, type IChartApi } from 'lightweight-charts'
 import { fetchKline, fetchScore, fetchSignals, fetchQuote, type KlineItem, type StockScore, type StockSignal, type StockQuote } from '@/api/stock'
@@ -156,6 +164,8 @@ const liveQuote = ref<StockQuote | null>(null)
 const isWatched = ref(false)
 const aiAnalysis = ref<AIDetail | null>(null)
 const aiLoading = ref(false)
+const pageLoading = ref(true)
+const loadingText = ref('加载中...')
 
 async function checkWatchlist() {
   try {
@@ -342,21 +352,38 @@ function handleResize() {
 
 onMounted(async () => {
   let klines: KlineItem[] = []
+  pageLoading.value = true
 
+  // First: get quote (always fast, from EastMoney real-time)
   try {
-    const [klineRes, scoreRes, sigRes, quoteRes] = await Promise.all([
+    const quoteRes = await fetchQuote(code)
+    if (quoteRes.data?.price) liveQuote.value = quoteRes.data
+  } catch {}
+
+  // Then: try loading existing data
+  try {
+    const [klineRes, scoreRes, sigRes] = await Promise.all([
       fetchKline(code, 60),
       fetchScore(code),
       fetchSignals(code),
-      fetchQuote(code),
     ])
     klines = klineRes.data
     score.value = scoreRes.data
     signalList.value = sigRes.data
-    if (quoteRes.data?.price) liveQuote.value = quoteRes.data
-  } catch {
-    // API unavailable
+  } catch {}
+
+  // If no klines, the backend auto-sync should have triggered during fetchKline.
+  // But if it returned empty (provider also failed), show message.
+  if (klines.length === 0) {
+    loadingText.value = '首次加载，正在拉取历史数据...'
+    // fetchKline already triggers backend sync, just retry after a short wait
+    try {
+      const retryRes = await fetchKline(code, 60)
+      klines = retryRes.data
+    } catch {}
   }
+
+  pageLoading.value = false
 
   await checkWatchlist()
 
@@ -603,4 +630,23 @@ onUnmounted(() => {
 .ai-content { display: flex; flex-direction: column; gap: 12px; }
 .ai-section p { font-size: 14px; color: var(--color-text); line-height: 1.6; margin: 4px 0 0; }
 .ai-label { font-size: 13px; font-weight: 600; color: var(--color-accent); }
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 0;
+  color: var(--color-text-secondary);
+  gap: 12px;
+}
+.loading-state p { font-size: 14px; }
+.loading-spin {
+  animation: spin 1s linear infinite;
+  color: var(--color-accent);
+}
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
 </style>
