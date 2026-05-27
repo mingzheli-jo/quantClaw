@@ -142,6 +142,57 @@
         </div>
       </el-tab-pane>
 
+      <!-- AI Config Tab -->
+      <el-tab-pane label="AI 配置" name="ai">
+        <div class="card">
+          <h3 class="group-title">AI 分析模型</h3>
+          <el-form label-width="140px" label-position="left" class="settings-form">
+            <el-form-item label="当前模型">
+              <el-radio-group v-model="aiProvider" @change="onAIProviderChange">
+                <el-radio-button value="deepseek">
+                  DeepSeek
+                  <el-tag v-if="aiConfig?.deepseek_configured" type="success" size="small" style="margin-left: 6px">已配置</el-tag>
+                  <el-tag v-else type="info" size="small" style="margin-left: 6px">未配置</el-tag>
+                </el-radio-button>
+                <el-radio-button value="qwen">
+                  通义千问
+                  <el-tag v-if="aiConfig?.qwen_configured" type="success" size="small" style="margin-left: 6px">已配置</el-tag>
+                  <el-tag v-else type="info" size="small" style="margin-left: 6px">未配置</el-tag>
+                </el-radio-button>
+              </el-radio-group>
+            </el-form-item>
+            <el-form-item label="DeepSeek API Key">
+              <div class="key-row">
+                <el-input
+                  v-model="deepseekKey"
+                  type="password"
+                  show-password
+                  placeholder="sk-..."
+                  style="flex: 1"
+                />
+                <el-button @click="saveAIKey('deepseek')" :loading="aiSaving">保存</el-button>
+              </div>
+            </el-form-item>
+            <el-form-item label="通义千问 API Key">
+              <div class="key-row">
+                <el-input
+                  v-model="qwenKey"
+                  type="password"
+                  show-password
+                  placeholder="sk-..."
+                  style="flex: 1"
+                />
+                <el-button @click="saveAIKey('qwen')" :loading="aiSaving">保存</el-button>
+              </div>
+            </el-form-item>
+          </el-form>
+          <div class="ai-hint">
+            <p>DeepSeek: 注册 <a href="https://platform.deepseek.com" target="_blank">platform.deepseek.com</a> 获取 API Key，每月约 1-5 元</p>
+            <p>通义千问: 注册 <a href="https://dashscope.aliyun.com" target="_blank">dashscope.aliyun.com</a> 获取 API Key</p>
+          </div>
+        </div>
+      </el-tab-pane>
+
       <!-- Schedule Tab -->
       <el-tab-pane label="定时任务" name="schedules">
         <div class="card">
@@ -236,8 +287,11 @@ import {
   setDataSource,
   fetchSchedules,
   updateSchedule,
+  fetchAIConfig,
+  updateAIConfig,
   type StrategyConfig,
   type JobScheduleItem,
+  type AIConfig,
 } from '@/api/settings'
 import {
   listStrategies,
@@ -395,6 +449,44 @@ async function onScheduleChange(row: JobScheduleItem) {
   } catch {}
 }
 
+// AI Config
+const aiConfig = ref<AIConfig | null>(null)
+const aiProvider = ref('deepseek')
+const deepseekKey = ref('')
+const qwenKey = ref('')
+const aiSaving = ref(false)
+
+async function loadAIConfig() {
+  try {
+    const { data } = await fetchAIConfig()
+    aiConfig.value = data
+    aiProvider.value = data.provider
+  } catch {}
+}
+
+async function onAIProviderChange(val: string) {
+  try {
+    const { data } = await updateAIConfig({ provider: val })
+    aiConfig.value = data
+    ElMessage.success('AI 模型已切换为 ' + (val === 'deepseek' ? 'DeepSeek' : '通义千问'))
+  } catch {}
+}
+
+async function saveAIKey(provider: string) {
+  aiSaving.value = true
+  try {
+    const payload: Record<string, string> = {}
+    if (provider === 'deepseek') payload.deepseek_api_key = deepseekKey.value
+    if (provider === 'qwen') payload.qwen_api_key = qwenKey.value
+    const { data } = await updateAIConfig(payload)
+    aiConfig.value = data
+    ElMessage.success('API Key 已保存')
+    if (provider === 'deepseek') deepseekKey.value = ''
+    if (provider === 'qwen') qwenKey.value = ''
+  } catch {}
+  aiSaving.value = false
+}
+
 // Notification
 const notifyUrl = ref('')
 const testMsg = ref('')
@@ -435,6 +527,7 @@ onMounted(() => {
   loadDataSource()
   loadStrategies()
   loadSchedules()
+  loadAIConfig()
 })
 </script>
 
@@ -693,4 +786,9 @@ onMounted(() => {
 .time-inputs { display: flex; align-items: center; gap: 4px; }
 .time-sep { font-size: 16px; font-weight: 700; color: var(--color-text); }
 .time-unit { font-size: 13px; color: var(--color-text-secondary); margin-left: 4px; }
+
+.key-row { display: flex; gap: 8px; width: 100%; }
+.ai-hint { margin-top: 16px; padding: 12px; background: rgba(78, 205, 196, 0.05); border-radius: 8px; }
+.ai-hint p { font-size: 13px; color: var(--color-text-secondary); margin: 4px 0; }
+.ai-hint a { color: var(--color-accent); text-decoration: none; }
 </style>

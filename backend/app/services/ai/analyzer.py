@@ -16,9 +16,32 @@ logger = logging.getLogger(__name__)
 
 
 def _get_llm_client() -> LLMClient:
+    from app.database import SessionLocal
+    from app.models.config import SystemConfig
+
     provider = settings.llm_provider
-    key_map = {"deepseek": settings.deepseek_api_key, "qwen": settings.qwen_api_key}
-    api_key = key_map.get(provider, settings.deepseek_api_key)
+    deepseek_key = settings.deepseek_api_key
+    qwen_key = settings.qwen_api_key
+
+    try:
+        db = SessionLocal()
+        try:
+            for row in db.query(SystemConfig).filter(
+                SystemConfig.key.in_(["llm_provider", "deepseek_api_key", "qwen_api_key"])
+            ).all():
+                if row.key == "llm_provider":
+                    provider = row.value
+                elif row.key == "deepseek_api_key" and row.value:
+                    deepseek_key = row.value
+                elif row.key == "qwen_api_key" and row.value:
+                    qwen_key = row.value
+        finally:
+            db.close()
+    except Exception:
+        pass
+
+    key_map = {"deepseek": deepseek_key, "qwen": qwen_key}
+    api_key = key_map.get(provider, deepseek_key)
     return LLMClient(api_key=api_key, provider=provider)
 
 

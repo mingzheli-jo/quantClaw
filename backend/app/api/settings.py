@@ -159,3 +159,58 @@ def update_schedule(
         "interval_seconds": job.interval_seconds,
         "enabled": job.enabled,
     }
+
+
+@router.get("/ai")
+def get_ai_config(
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    from app.models.config import SystemConfig
+    provider_row = db.query(SystemConfig).filter(SystemConfig.key == "llm_provider").first()
+    provider = provider_row.value if provider_row else app_settings.llm_provider
+    return {
+        "provider": provider,
+        "available_providers": ["deepseek", "qwen"],
+        "deepseek_configured": bool(app_settings.deepseek_api_key),
+        "qwen_configured": bool(app_settings.qwen_api_key),
+    }
+
+
+@router.put("/ai")
+def update_ai_config(
+    body: dict,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    from app.models.config import SystemConfig
+    provider = body.get("provider")
+    if provider and provider in ("deepseek", "qwen"):
+        row = db.query(SystemConfig).filter(SystemConfig.key == "llm_provider").first()
+        if row:
+            row.value = provider
+        else:
+            db.add(SystemConfig(key="llm_provider", value=provider))
+        db.commit()
+
+    deepseek_key = body.get("deepseek_api_key")
+    if deepseek_key is not None:
+        row = db.query(SystemConfig).filter(SystemConfig.key == "deepseek_api_key").first()
+        if row:
+            row.value = deepseek_key
+        else:
+            db.add(SystemConfig(key="deepseek_api_key", value=deepseek_key))
+        db.commit()
+        app_settings.deepseek_api_key = deepseek_key
+
+    qwen_key = body.get("qwen_api_key")
+    if qwen_key is not None:
+        row = db.query(SystemConfig).filter(SystemConfig.key == "qwen_api_key").first()
+        if row:
+            row.value = qwen_key
+        else:
+            db.add(SystemConfig(key="qwen_api_key", value=qwen_key))
+        db.commit()
+        app_settings.qwen_api_key = qwen_key
+
+    return get_ai_config(db=db, user=user)

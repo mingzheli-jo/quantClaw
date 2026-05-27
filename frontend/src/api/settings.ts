@@ -57,3 +57,18 @@ export function fetchSchedules() {
 export function updateSchedule(jobId: string, data: Partial<JobScheduleItem>) {
   return client.put<JobScheduleItem>(`/settings/schedules/${jobId}`, data)
 }
+
+export interface AIConfig {
+  provider: string
+  available_providers: string[]
+  deepseek_configured: boolean
+  qwen_configured: boolean
+}
+
+export function fetchAIConfig() {
+  return client.get<AIConfig>('/settings/ai')
+}
+
+export function updateAIConfig(data: { provider?: string; deepseek_api_key?: string; qwen_api_key?: string }) {
+  return client.put<AIConfig>('/settings/ai', data)
+}
