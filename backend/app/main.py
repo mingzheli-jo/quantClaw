@@ -93,11 +93,20 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="QuantClaw", lifespan=lifespan)
 app.include_router(api_router)
 
-static_dir = Path(__file__).parent / "static"
-if static_dir.exists():
-    app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
-
-
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
+
+
+static_dir = Path(__file__).parent / "static"
+if static_dir.exists():
+    from fastapi.responses import FileResponse
+
+    app.mount("/assets", StaticFiles(directory=str(static_dir / "assets")), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        file_path = static_dir / full_path
+        if file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(static_dir / "index.html")
