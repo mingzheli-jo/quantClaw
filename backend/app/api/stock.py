@@ -118,10 +118,16 @@ def compare(
 
 
 def _sync_stock_data(db: Session, code: str, days: int = 90) -> int:
-    fetcher = SmartFetcher(primary=EastmoneyProvider(), fallback=BaostockProvider())
     start_date = (date.today() - timedelta(days=days)).strftime("%Y%m%d")
     end_date = date.today().strftime("%Y%m%d")
-    df = fetcher.fetch_daily_klines_batch([code], start_date=start_date, end_date=end_date)
+    baostock = BaostockProvider()
+    df = baostock.fetch_daily_klines(code, start_date, end_date)
+    if df is None or df.empty:
+        logger.info(f"BaoStock empty for {code}, trying EastMoney")
+        eastmoney = EastmoneyProvider()
+        df = eastmoney.fetch_daily_klines(code, start_date, end_date)
+    if df is None or df.empty:
+        return 0
     if df.empty:
         return 0
     count = 0
