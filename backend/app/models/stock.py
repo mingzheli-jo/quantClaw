@@ -11,7 +11,7 @@ class StockBasic(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     code: Mapped[str] = mapped_column(String(10), unique=True, index=True)
-    name: Mapped[str] = mapped_column(String(20))
+    name: Mapped[str] = mapped_column(String(60))
     industry: Mapped[str | None] = mapped_column(String(30))
     market: Mapped[str] = mapped_column(String(10))
     list_date: Mapped[date] = mapped_column(Date)
