@@ -79,6 +79,34 @@
       <p class="reason-text">{{ score.reason }}</p>
     </div>
 
+    <!-- AI Analysis -->
+    <div class="card card-ai">
+      <div class="card-title">AI 分析</div>
+      <div v-if="aiAnalysis && aiAnalysis.summary" class="ai-content">
+        <div class="ai-section" v-if="aiAnalysis.summary">
+          <span class="ai-label">推荐理由</span>
+          <p>{{ aiAnalysis.summary }}</p>
+        </div>
+        <div class="ai-section" v-if="aiAnalysis.risk">
+          <span class="ai-label">风险提示</span>
+          <p>{{ aiAnalysis.risk }}</p>
+        </div>
+        <div class="ai-section" v-if="aiAnalysis.suggestion">
+          <span class="ai-label">操作建议</span>
+          <p>{{ aiAnalysis.suggestion }}</p>
+        </div>
+        <div class="ai-section" v-if="aiAnalysis.market_comment">
+          <span class="ai-label">市场环境</span>
+          <p>{{ aiAnalysis.market_comment }}</p>
+        </div>
+      </div>
+      <div v-else>
+        <el-button :loading="aiLoading" @click="handleGenerate" type="primary" plain>
+          {{ aiLoading ? '生成中...' : '生成 AI 分析' }}
+        </el-button>
+      </div>
+    </div>
+
     <!-- Signal history -->
     <div class="card card-signals">
       <div class="card-title">历史信号</div>
@@ -111,6 +139,7 @@ import * as echarts from 'echarts'
 import { createChart, type IChartApi } from 'lightweight-charts'
 import { fetchKline, fetchScore, fetchSignals, fetchQuote, type KlineItem, type StockScore, type StockSignal, type StockQuote } from '@/api/stock'
 import { addToWatchlist, removeFromWatchlist, fetchWatchlist } from '@/api/watchlist'
+import { fetchAnalysis, generateAnalysis, type AIDetail } from '@/api/ai'
 
 const route = useRoute()
 const router = useRouter()
@@ -125,6 +154,8 @@ const score = ref<StockScore | null>(null)
 const signalList = ref<StockSignal[]>([])
 const liveQuote = ref<StockQuote | null>(null)
 const isWatched = ref(false)
+const aiAnalysis = ref<AIDetail | null>(null)
+const aiLoading = ref(false)
 
 async function checkWatchlist() {
   try {
@@ -141,6 +172,15 @@ async function toggleWatchlist() {
     await addToWatchlist(code)
     isWatched.value = true
   }
+}
+
+async function handleGenerate() {
+  aiLoading.value = true
+  try {
+    const { data } = await generateAnalysis(code)
+    aiAnalysis.value = data
+  } catch {}
+  aiLoading.value = false
 }
 
 function calcMA(data: KlineItem[], period: number): (number | null)[] {
@@ -319,6 +359,11 @@ onMounted(async () => {
   }
 
   await checkWatchlist()
+
+  try {
+    const { data: aiData } = await fetchAnalysis(code)
+    if (aiData.summary) aiAnalysis.value = aiData
+  } catch {}
 
   await nextTick()
   initKline(klines, signalList.value)
@@ -554,4 +599,8 @@ onUnmounted(() => {
   padding: 32px 0;
   font-size: 14px;
 }
+
+.ai-content { display: flex; flex-direction: column; gap: 12px; }
+.ai-section p { font-size: 14px; color: var(--color-text); line-height: 1.6; margin: 4px 0 0; }
+.ai-label { font-size: 13px; font-weight: 600; color: var(--color-accent); }
 </style>

@@ -495,6 +495,12 @@ def job_post_market_analyze():
                 Signal.trade_date < today,
             ).order_by(Signal.trade_date.desc()).first()
             sig["score_delta"] = sig["score"] - prev.score if prev else 0
+        from app.models.ai import AIAnalysis
+        for sig in top_signals:
+            ai = db.query(AIAnalysis).filter(
+                AIAnalysis.code == sig["code"], AIAnalysis.trade_date == today
+            ).first()
+            sig["ai_summary"] = ai.summary if ai else ""
         day_idx = today.timetuple().tm_yday % len(INDICATOR_GUIDES)
         learn_tip = INDICATOR_GUIDES[day_idx]
         card = build_post_market_card(today, top_signals, pos_report, sentiment_dict, learn_tip, settings.base_url)
@@ -523,5 +529,69 @@ def job_maintenance():
     except Exception as e:
         logger.error(f"Maintenance failed: {e}")
         _log_job(db, "maintenance", "failed", str(e))
+    finally:
+        db.close()
+
+
+def job_ai_analysis():
+    if not is_trading_day():
+        return
+    if not settings.deepseek_api_key and not settings.qwen_api_key:
+        logger.info("AI analysis skipped: no LLM API key configured")
+        return
+    started = datetime.now()
+    db = SessionLocal()
+    try:
+        from app.models.ai import AIAnalysis
+        from app.models.watchlist import Watchlist
+        from app.services.ai.analyzer import analyze_stock
+
+        today = date.today()
+        codes = set()
+
+        top_signals = (
+            db.query(Signal)
+            .filter(Signal.trade_date == today)
+            .order_by(Signal.score.desc())
+            .limit(3)
+            .all()
+        )
+        for s in top_signals:
+            codes.add(s.code)
+
+        positions = get_active_positions(db)
+        for p in positions:
+            codes.add(p.code)
+
+        watchlist = db.query(Watchlist).all()
+        for w in watchlist:
+            codes.add(w.code)
+
+        generated = 0
+        for code in codes:
+            existing = db.query(AIAnalysis).filter(
+                AIAnalysis.code == code, AIAnalysis.trade_date == today
+            ).first()
+            if existing:
+                continue
+            result = analyze_stock(db, code)
+            db.add(AIAnalysis(
+                code=code,
+                trade_date=today,
+                summary=result["summary"],
+                risk=result["risk"],
+                suggestion=result["suggestion"],
+                market_comment=result["market_comment"],
+                llm_provider=settings.llm_provider,
+            ))
+            db.commit()
+            generated += 1
+
+        _log_job(db, "ai_analysis", "success",
+                 f"Generated {generated} AI analyses for {len(codes)} stocks",
+                 started_at=started, records_collected=generated)
+    except Exception as e:
+        logger.error(f"AI analysis job failed: {e}", exc_info=True)
+        _log_job(db, "ai_analysis", "failed", str(e), started_at=started, error_message=str(e))
     finally:
         db.close()

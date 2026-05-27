@@ -5,6 +5,7 @@ from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from app.scheduler.jobs import (
+    job_ai_analysis,
     job_intraday_check,
     job_maintenance,
     job_post_market_analyze,
@@ -38,13 +39,16 @@ def start_scheduler():
     scheduler.add_job(
         job_post_market_analyze, CronTrigger(hour=15, minute=30), id="post_market_analyze", replace_existing=True
     )
+    scheduler.add_job(
+        job_ai_analysis, CronTrigger(hour=15, minute=40), id="ai_analysis", replace_existing=True
+    )
     scheduler.add_job(job_maintenance, CronTrigger(hour=20, minute=0), id="maintenance", replace_existing=True)
     scheduler.add_job(
         _job_realtime_refresh, IntervalTrigger(seconds=60),
         id="realtime_refresh", replace_existing=True,
     )
     scheduler.start()
-    logger.info("Scheduler started with 7 trading-day jobs")
+    logger.info("Scheduler started with 8 trading-day jobs")
 
 
 def shutdown_scheduler():

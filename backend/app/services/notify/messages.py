@@ -49,6 +49,11 @@ def build_post_market_card(
                         "type": "default",
                     }],
                 })
+            if sig.get("ai_summary"):
+                elements.append({
+                    "tag": "div",
+                    "text": {"tag": "lark_md", "content": f"🤖 AI: {sig['ai_summary'][:80]}"},
+                })
         elements.append({"tag": "hr"})
     else:
         elements.append({"tag": "div", "text": {"tag": "lark_md", "content": "**今日无买入候选** — 耐心等待更好的机会"}})

@@ -53,6 +53,7 @@ import {
   SwitchButton,
   Star,
   Histogram,
+  MagicStick,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -67,6 +68,7 @@ const navItems = [
   { path: '/scan', label: '选股扫描', icon: Search },
   { path: '/watchlist', label: '自选股', icon: Star },
   { path: '/compare', label: '个股对比', icon: Histogram },
+  { path: '/ai', label: 'AI 洞察', icon: MagicStick },
   { path: '/position', label: '持仓管理', icon: Wallet },
   { path: '/realtime', label: '实时监控', icon: Monitor },
   { path: '/backtest', label: '策略回测', icon: TrendCharts },

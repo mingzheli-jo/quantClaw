@@ -12,6 +12,7 @@ const router = createRouter({
     { path: '/backtest', name: 'backtest', component: () => import('@/views/BacktestView.vue') },
     { path: '/watchlist', name: 'watchlist', component: () => import('@/views/WatchlistView.vue') },
     { path: '/compare', name: 'compare', component: () => import('@/views/CompareView.vue') },
+    { path: '/ai', name: 'ai', component: () => import('@/views/AIInsightView.vue') },
     { path: '/learn', name: 'learn', component: () => import('@/views/LearnView.vue') },
     { path: '/system', name: 'system', component: () => import('@/views/SystemHealthView.vue') },
     { path: '/settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
