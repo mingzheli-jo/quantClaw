@@ -5,6 +5,7 @@ from app.models.position import Position, TradeLog
 from app.models.system import User, StrategyConfig, SchedulerLog
 from app.models.config import SystemConfig
 from app.models.strategy import StrategyTemplate, BacktestResult
+from app.models.watchlist import Watchlist  # noqa: F401
 
 __all__ = [
     "StockBasic", "StockDaily",
@@ -14,4 +15,5 @@ __all__ = [
     "User", "StrategyConfig", "SchedulerLog",
     "SystemConfig",
     "StrategyTemplate", "BacktestResult",
+    "Watchlist",
 ]

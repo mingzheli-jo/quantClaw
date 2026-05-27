@@ -7,6 +7,7 @@
         <router-view />
       </main>
     </div>
+    <BottomTabBar />
   </div>
 </template>
 
@@ -15,6 +16,7 @@ import { onMounted } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import AppSidebar from './AppSidebar.vue'
 import AppHeader from './AppHeader.vue'
+import BottomTabBar from './BottomTabBar.vue'
 
 const authStore = useAuthStore()
 
@@ -43,5 +45,14 @@ onMounted(() => {
   flex: 1;
   padding: 24px 32px 32px;
   overflow-y: auto;
+}
+
+@media (max-width: 767px) {
+  .main-area {
+    margin-left: 0;
+  }
+  .main-content {
+    padding: 16px 16px 72px;
+  }
 }
 </style>

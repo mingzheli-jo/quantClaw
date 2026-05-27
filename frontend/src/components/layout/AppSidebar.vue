@@ -51,6 +51,8 @@ import {
   Reading,
   Setting,
   SwitchButton,
+  Star,
+  Histogram,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -63,6 +65,8 @@ const avatarLetter = computed(() => username.value.charAt(0).toUpperCase())
 const navItems = [
   { path: '/', label: '仪表盘', icon: DataLine },
   { path: '/scan', label: '选股扫描', icon: Search },
+  { path: '/watchlist', label: '自选股', icon: Star },
+  { path: '/compare', label: '个股对比', icon: Histogram },
   { path: '/position', label: '持仓管理', icon: Wallet },
   { path: '/realtime', label: '实时监控', icon: Monitor },
   { path: '/backtest', label: '策略回测', icon: TrendCharts },
@@ -216,5 +220,9 @@ function handleLogout() {
 .logout-btn:hover {
   color: var(--color-danger);
   background: rgba(239, 83, 80, 0.1);
+}
+
+@media (max-width: 767px) {
+  .sidebar { display: none; }
 }
 </style>

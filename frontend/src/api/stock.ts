@@ -49,3 +49,19 @@ export function fetchScore(code: string) {
 export function fetchSignals(code: string) {
   return client.get<StockSignal[]>(`/stock/${code}/signals`)
 }
+
+export interface CompareStock {
+  code: string
+  name: string
+  industry: string
+  score: number
+  tech_score: number
+  fund_score: number
+  momentum_score: number
+  sentiment_score: number
+  klines: { trade_date: string; close: number; volume: number; change_pct: number }[]
+}
+
+export function fetchCompare(codes: string[]) {
+  return client.get<CompareStock[]>('/stock/compare', { params: { codes: codes.join(',') } })
+}

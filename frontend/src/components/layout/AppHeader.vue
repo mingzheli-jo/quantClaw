@@ -168,4 +168,10 @@ function handleSelect(item: { value: string }) {
   color: var(--color-text-secondary);
   font-variant-numeric: tabular-nums;
 }
+
+@media (max-width: 767px) {
+  .app-header { padding: 0 16px; }
+  .stock-search :deep(.el-autocomplete) { width: 180px; }
+  .header-date { display: none; }
+}
 </style>
