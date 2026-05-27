@@ -245,6 +245,14 @@ def job_post_market_analyze():
     started = datetime.now()
     db = SessionLocal()
     try:
+        existing_log = db.query(SchedulerLog).filter(
+            SchedulerLog.job_name == "post_market_analyze",
+            SchedulerLog.status == "success",
+            SchedulerLog.started_at >= date.today(),
+        ).first()
+        if existing_log:
+            logger.info("post_market_analyze already ran today, skipping")
+            return
         import pandas as pd
 
         from app.services.strategy.filters import hard_filter
