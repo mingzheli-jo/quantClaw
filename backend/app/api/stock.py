@@ -1,5 +1,7 @@
+import logging
 from datetime import date, timedelta
 
+import httpx
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
@@ -8,6 +10,9 @@ from app.api.deps import get_current_user, get_db
 from app.models.signal import Signal
 from app.models.stock import StockBasic, StockDaily
 from app.models.system import User
+from app.services.data.providers.eastmoney import _random_headers
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/stock", tags=["stock"])
 
@@ -34,6 +39,43 @@ def search(
         }
         for s in results
     ]
+
+
+@router.get("/quote")
+def quote(
+    code: str = Query(...),
+    user: User = Depends(get_current_user),
+):
+    market = "1" if code.startswith("6") else "0"
+    secid = f"{market}.{code}"
+    url = "http://push2.eastmoney.com/api/qt/stock/get"
+    params = {
+        "secid": secid,
+        "fields": "f43,f44,f45,f46,f47,f48,f50,f57,f58,f60,f169,f170,f171",
+    }
+    try:
+        resp = httpx.get(url, params=params, headers=_random_headers(), timeout=5)
+        data = resp.json().get("data", {})
+        if not data:
+            return {"code": code, "price": 0, "change": 0, "change_pct": 0, "volume": 0, "amount": 0, "high": 0, "low": 0, "open": 0, "pre_close": 0}
+        divisor = 1000 if data.get("f59", 2) == 3 else 100
+        return {
+            "code": code,
+            "name": data.get("f58", ""),
+            "price": (data.get("f43", 0) or 0) / divisor,
+            "open": (data.get("f46", 0) or 0) / divisor,
+            "high": (data.get("f44", 0) or 0) / divisor,
+            "low": (data.get("f45", 0) or 0) / divisor,
+            "pre_close": (data.get("f60", 0) or 0) / divisor,
+            "change": (data.get("f169", 0) or 0) / divisor,
+            "change_pct": (data.get("f170", 0) or 0) / 100,
+            "volume": data.get("f47", 0) or 0,
+            "amount": (data.get("f48", 0) or 0) / 100,
+            "turnover_rate": (data.get("f171", 0) or 0) / 100,
+        }
+    except Exception as e:
+        logger.warning(f"Quote fetch failed for {code}: {e}")
+        return {"code": code, "price": 0, "change": 0, "change_pct": 0}
 
 
 @router.get("/compare")

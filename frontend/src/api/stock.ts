@@ -38,6 +38,25 @@ export function searchStocks(q: string) {
   return client.get<StockSearchResult[]>('/stock/search', { params: { q } })
 }
 
+export interface StockQuote {
+  code: string
+  name: string
+  price: number
+  open: number
+  high: number
+  low: number
+  pre_close: number
+  change: number
+  change_pct: number
+  volume: number
+  amount: number
+  turnover_rate: number
+}
+
+export function fetchQuote(code: string) {
+  return client.get<StockQuote>('/stock/quote', { params: { code } })
+}
+
 export function fetchKline(code: string, days = 60) {
   return client.get<KlineItem[]>(`/stock/${code}/kline`, { params: { days } })
 }

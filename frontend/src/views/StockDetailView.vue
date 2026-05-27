@@ -19,6 +19,23 @@
           :title="isWatched ? '取消自选' : '加入自选'"
         />
       </div>
+      <div class="live-quote" v-if="liveQuote && liveQuote.price">
+        <span class="quote-price" :class="liveQuote.change >= 0 ? 'up' : 'down'">
+          ¥{{ liveQuote.price.toFixed(2) }}
+        </span>
+        <span class="quote-change" :class="liveQuote.change >= 0 ? 'up' : 'down'">
+          {{ liveQuote.change >= 0 ? '+' : '' }}{{ liveQuote.change.toFixed(2) }}
+          ({{ liveQuote.change_pct >= 0 ? '+' : '' }}{{ liveQuote.change_pct.toFixed(2) }}%)
+        </span>
+        <div class="quote-details">
+          <span>开 {{ liveQuote.open.toFixed(2) }}</span>
+          <span>高 {{ liveQuote.high.toFixed(2) }}</span>
+          <span>低 {{ liveQuote.low.toFixed(2) }}</span>
+          <span>量 {{ (liveQuote.volume / 10000).toFixed(0) }}万手</span>
+          <span>额 {{ (liveQuote.amount / 100000000).toFixed(2) }}亿</span>
+          <span>换手 {{ liveQuote.turnover_rate.toFixed(2) }}%</span>
+        </div>
+      </div>
     </div>
 
     <!-- K-Line + Radar row -->
@@ -92,7 +109,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, Star, StarFilled } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import { createChart, type IChartApi } from 'lightweight-charts'
-import { fetchKline, fetchScore, fetchSignals, type KlineItem, type StockScore, type StockSignal } from '@/api/stock'
+import { fetchKline, fetchScore, fetchSignals, fetchQuote, type KlineItem, type StockScore, type StockSignal, type StockQuote } from '@/api/stock'
 import { addToWatchlist, removeFromWatchlist, fetchWatchlist } from '@/api/watchlist'
 
 const route = useRoute()
@@ -106,6 +123,7 @@ let radarChart: echarts.ECharts | null = null
 
 const score = ref<StockScore | null>(null)
 const signalList = ref<StockSignal[]>([])
+const liveQuote = ref<StockQuote | null>(null)
 const isWatched = ref(false)
 
 async function checkWatchlist() {
@@ -286,14 +304,16 @@ onMounted(async () => {
   let klines: KlineItem[] = []
 
   try {
-    const [klineRes, scoreRes, sigRes] = await Promise.all([
+    const [klineRes, scoreRes, sigRes, quoteRes] = await Promise.all([
       fetchKline(code, 60),
       fetchScore(code),
       fetchSignals(code),
+      fetchQuote(code),
     ])
     klines = klineRes.data
     score.value = scoreRes.data
     signalList.value = sigRes.data
+    if (quoteRes.data?.price) liveQuote.value = quoteRes.data
   } catch {
     // API unavailable
   }
@@ -390,6 +410,36 @@ onUnmounted(() => {
   background: rgba(78, 205, 196, 0.1);
   padding: 3px 10px;
   border-radius: 6px;
+}
+
+/* -- Live quote -- */
+.live-quote {
+  margin-top: 12px;
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.quote-price {
+  font-size: 28px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.quote-change {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.up { color: var(--color-danger, #ef5350); }
+.down { color: var(--color-success, #4ecdc4); }
+.quote-details {
+  width: 100%;
+  display: flex;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
 }
 
 /* -- Charts row -- */
