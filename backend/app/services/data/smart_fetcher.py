@@ -47,6 +47,15 @@ class SmartFetcher:
 
     def fetch_stock_basic_list(self) -> pd.DataFrame:
         result = self._try_with_fallback("fetch_stock_basic_list")
+        if isinstance(result, pd.DataFrame) and len(result) < 1000:
+            logger.warning(f"Primary stock list only returned {len(result)} records, trying fallback")
+            try:
+                fallback_result = self._fallback.fetch_stock_basic_list()
+                if isinstance(fallback_result, pd.DataFrame) and len(fallback_result) > len(result):
+                    logger.info(f"Fallback stock list returned {len(fallback_result)} records")
+                    return fallback_result
+            except Exception as e:
+                logger.warning(f"Fallback stock list also failed: {e}")
         return result if isinstance(result, pd.DataFrame) else pd.DataFrame()
 
     def fetch_daily_klines_batch(

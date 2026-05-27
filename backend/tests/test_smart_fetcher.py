@@ -13,22 +13,35 @@ def fetcher():
     return SmartFetcher(primary=primary, fallback=fallback), primary, fallback
 
 
-def test_stock_list_uses_primary(fetcher):
+def _make_stock_df(n: int) -> pd.DataFrame:
+    return pd.DataFrame([{"code": f"{i:06d}"} for i in range(n)])
+
+
+def test_stock_list_uses_primary_when_enough(fetcher):
     sf, primary, fallback = fetcher
-    primary.fetch_stock_basic_list.return_value = pd.DataFrame([{"code": "000001"}])
+    primary.fetch_stock_basic_list.return_value = _make_stock_df(3000)
     result = sf.fetch_stock_basic_list()
-    assert len(result) == 1
+    assert len(result) == 3000
     primary.fetch_stock_basic_list.assert_called_once()
     fallback.fetch_stock_basic_list.assert_not_called()
 
 
-def test_stock_list_falls_back(fetcher):
+def test_stock_list_falls_back_on_degraded(fetcher):
+    sf, primary, fallback = fetcher
+    primary.fetch_stock_basic_list.return_value = _make_stock_df(100)
+    fallback.fetch_stock_basic_list.return_value = _make_stock_df(5000)
+    result = sf.fetch_stock_basic_list()
+    assert len(result) == 5000
+    fallback.fetch_stock_basic_list.assert_called_once()
+
+
+def test_stock_list_falls_back_on_exception(fetcher):
     sf, primary, fallback = fetcher
     primary.fetch_stock_basic_list.side_effect = Exception("banned")
-    fallback.fetch_stock_basic_list.return_value = pd.DataFrame([{"code": "000001"}])
+    fallback.fetch_stock_basic_list.return_value = _make_stock_df(5000)
     result = sf.fetch_stock_basic_list()
-    assert len(result) == 1
-    fallback.fetch_stock_basic_list.assert_called_once()
+    assert len(result) == 5000
+    fallback.fetch_stock_basic_list.assert_called()
 
 
 def test_stock_list_falls_back_on_empty(fetcher):
