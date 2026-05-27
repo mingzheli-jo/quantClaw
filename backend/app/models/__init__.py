@@ -6,6 +6,7 @@ from app.models.system import User, StrategyConfig, SchedulerLog
 from app.models.config import SystemConfig
 from app.models.strategy import StrategyTemplate, BacktestResult
 from app.models.watchlist import Watchlist  # noqa: F401
+from app.models.ai import AIAnalysis  # noqa: F401
 
 __all__ = [
     "StockBasic", "StockDaily",
@@ -16,4 +17,5 @@ __all__ = [
     "SystemConfig",
     "StrategyTemplate", "BacktestResult",
     "Watchlist",
+    "AIAnalysis",
 ]

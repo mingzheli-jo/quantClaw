@@ -14,6 +14,10 @@ class Settings(BaseSettings):
 
     base_url: str = "https://quant.azhefuye.online"
 
+    deepseek_api_key: str = ""
+    qwen_api_key: str = ""
+    llm_provider: str = "deepseek"
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
