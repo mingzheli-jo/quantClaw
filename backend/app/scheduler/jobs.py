@@ -1,3 +1,4 @@
+import json
 import logging
 from datetime import date, datetime
 
@@ -8,13 +9,9 @@ from app.models.signal import Signal
 from app.models.stock import StockBasic, StockDaily
 from app.models.system import SchedulerLog
 from app.scheduler.trading_calendar import is_trading_day
-from app.services.data.fetcher import (
-    fetch_daily_klines_batch,
-    fetch_market_sentiment,
-    fetch_north_flow,
-    fetch_sector_daily,
-    fetch_stock_basic_list,
-)
+from app.services.data.smart_fetcher import SmartFetcher
+from app.services.data.providers.eastmoney import EastmoneyProvider
+from app.services.data.providers.baostock_provider import BaostockProvider
 from app.services.data.maintenance import purge_old_data, update_stock_basic
 from app.services.notify.feishu import FeishuBot
 from app.services.notify.messages import build_alert_card, build_post_market_card, build_pre_market_card
@@ -23,18 +20,28 @@ from app.services.position.manager import get_active_positions
 logger = logging.getLogger(__name__)
 
 
+def _get_fetcher() -> SmartFetcher:
+    return SmartFetcher(primary=EastmoneyProvider(), fallback=BaostockProvider())
+
+
 def _log_job(
     db,
     job_name: str,
     status: str,
     message: str = "",
     started_at: datetime | None = None,
+    records_collected: int = 0,
+    details: str | None = None,
+    error_message: str | None = None,
 ):
     db.add(
         SchedulerLog(
             job_name=job_name,
             status=status,
             message=message,
+            records_collected=records_collected,
+            details=details,
+            error_message=error_message,
             started_at=started_at or datetime.now(),
             finished_at=datetime.now(),
         )
@@ -80,7 +87,8 @@ def job_intraday_check():
         if not positions:
             _log_job(db, "intraday_check", "success", "No positions", started_at=started)
             return
-        spot_df = fetch_stock_basic_list()
+        fetcher = _get_fetcher()
+        spot_df = fetcher.fetch_stock_basic_list()
         if spot_df.empty:
             return
         price_map = dict(zip(spot_df["code"], spot_df["price"]))
@@ -123,12 +131,18 @@ def job_post_market_collect():
     started = datetime.now()
     db = SessionLocal()
     try:
-        stock_list = fetch_stock_basic_list()
+        fetcher = _get_fetcher()
+        counts = {"stocks": 0, "klines": 0, "north": 0, "sectors": 0, "sentiment": 0}
+        errors = []
+
+        stock_list = fetcher.fetch_stock_basic_list()
         if stock_list.empty:
             raise RuntimeError("Failed to fetch stock list")
         codes = stock_list["code"].tolist()
+        counts["stocks"] = len(codes)
+
         today_str = date.today().strftime("%Y%m%d")
-        kline_df = fetch_daily_klines_batch(codes, start_date=today_str, end_date=today_str)
+        kline_df = fetcher.fetch_daily_klines_batch(codes, start_date=today_str, end_date=today_str)
         if not kline_df.empty:
             for _, row in kline_df.iterrows():
                 existing = (
@@ -138,8 +152,10 @@ def job_post_market_collect():
                 )
                 if not existing:
                     db.add(StockDaily(**row.to_dict()))
+                    counts["klines"] += 1
             db.commit()
-        north_df = fetch_north_flow(days=5)
+
+        north_df = fetcher.fetch_north_flow(days=5)
         if not north_df.empty:
             for _, row in north_df.iterrows():
                 existing = (
@@ -156,8 +172,12 @@ def job_post_market_collect():
                             net_amount=row["net_amount"],
                         )
                     )
+                    counts["north"] += 1
             db.commit()
-        sector_df = fetch_sector_daily()
+        else:
+            errors.append("north_flow: no data")
+
+        sector_df = fetcher.fetch_sector_daily()
         if not sector_df.empty:
             for _, row in sector_df.iterrows():
                 existing = (
@@ -178,8 +198,12 @@ def job_post_market_collect():
                             net_fund_flow=row.get("net_fund_flow", 0),
                         )
                     )
+                    counts["sectors"] += 1
             db.commit()
-        sentiment = fetch_market_sentiment()
+        else:
+            errors.append("sector_daily: no data")
+
+        sentiment = fetcher.fetch_market_sentiment()
         if sentiment:
             existing = (
                 db.query(MarketSentiment)
@@ -189,13 +213,24 @@ def job_post_market_collect():
             if not existing:
                 db.add(MarketSentiment(**sentiment))
                 db.commit()
+                counts["sentiment"] = 1
+        else:
+            errors.append("market_sentiment: no data")
+
+        status = "partial" if errors else "success"
         _log_job(
             db,
             "post_market_collect",
-            "success",
+            status,
             f"Collected {len(codes)} stocks",
             started_at=started,
+            records_collected=sum(counts.values()),
+            details=json.dumps({"counts": counts, "errors": errors}),
         )
+        if errors:
+            FeishuBot(settings.feishu_webhook_url).send_card(
+                build_alert_card("数据采集部分失败", "; ".join(errors), "warning")
+            )
     except Exception as e:
         logger.error(f"Post-market collect failed: {e}")
         _log_job(db, "post_market_collect", "failed", str(e), started_at=started)

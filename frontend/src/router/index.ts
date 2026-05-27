@@ -11,6 +11,7 @@ const router = createRouter({
     { path: '/realtime', name: 'realtime', component: () => import('@/views/RealtimeView.vue') },
     { path: '/backtest', name: 'backtest', component: () => import('@/views/BacktestView.vue') },
     { path: '/learn', name: 'learn', component: () => import('@/views/LearnView.vue') },
+    { path: '/system', name: 'system', component: () => import('@/views/SystemHealthView.vue') },
     { path: '/settings', name: 'settings', component: () => import('@/views/SettingsView.vue') },
   ],
 })

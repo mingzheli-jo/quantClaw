@@ -38,6 +38,13 @@ def test_sector_daily_returns_empty(provider):
     assert df.empty
 
 
-def test_market_sentiment_returns_empty(provider):
-    result = provider.fetch_market_sentiment()
-    assert result == {}
+def test_market_sentiment_returns_dict(provider):
+    mock_df = pd.DataFrame([
+        {"code": "000001", "change_pct": 5.0},
+        {"code": "000002", "change_pct": -3.0},
+    ])
+    with patch.object(provider, "_fetch_klines_for_sentiment", return_value=mock_df):
+        result = provider.fetch_market_sentiment()
+    assert isinstance(result, dict)
+    assert result["up_count"] == 1
+    assert result["down_count"] == 1

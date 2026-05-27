@@ -23,21 +23,14 @@ from app.models import *
 from app.services.data.providers.base import DataSourceManager
 from app.services.data.providers.eastmoney import EastmoneyProvider
 from app.services.data.providers.baostock_provider import BaostockProvider
+from app.services.data.smart_fetcher import SmartFetcher
 
 DataSourceManager.register("eastmoney", EastmoneyProvider())
 DataSourceManager.register("baostock", BaostockProvider())
 
-SEED_SOURCE = os.environ.get("SEED_SOURCE", "baostock")
-DataSourceManager.set_source(SEED_SOURCE)
-logger.info(f"Data source forced to: {SEED_SOURCE}")
+fetcher = SmartFetcher(primary=EastmoneyProvider(), fallback=BaostockProvider())
+logger.info("Using SmartFetcher with auto-failover")
 
-from app.services.data.fetcher import (
-    fetch_stock_basic_list,
-    fetch_daily_klines_batch,
-    fetch_north_flow,
-    fetch_sector_daily,
-    fetch_market_sentiment,
-)
 from app.services.data.indicators import calc_volume_ratio
 from app.services.strategy.filters import hard_filter
 from app.services.strategy.scoring import score_technical, score_fund, score_momentum, score_sentiment
@@ -63,7 +56,7 @@ def seed():
 
         # 2. Fetch stock basic list
         logger.info("Fetching stock basic list from AKShare...")
-        stock_df = fetch_stock_basic_list()
+        stock_df = fetcher.fetch_stock_basic_list()
         if stock_df.empty:
             logger.error("Failed to fetch stock list!")
             return
@@ -98,7 +91,7 @@ def seed():
         start_date = (date.today() - timedelta(days=90)).strftime("%Y%m%d")
         end_date = date.today().strftime("%Y%m%d")
 
-        kline_df = fetch_daily_klines_batch(codes, start_date=start_date, end_date=end_date)
+        kline_df = fetcher.fetch_daily_klines_batch(codes, start_date=start_date, end_date=end_date)
         if not kline_df.empty:
             kline_count = 0
             for _, row in kline_df.iterrows():
@@ -127,10 +120,9 @@ def seed():
         else:
             logger.warning("No K-line data fetched")
 
-        # 4. Fetch north flow (always use EastMoney — BaoStock doesn't support these)
-        eastmoney = EastmoneyProvider()
-        logger.info("Fetching north flow data (via EastMoney)...")
-        north_df = eastmoney.fetch_north_flow(days=30)
+        # 4. Fetch north flow
+        logger.info("Fetching north flow data...")
+        north_df = fetcher.fetch_north_flow(days=30)
         if not north_df.empty:
             north_count = 0
             for _, row in north_df.iterrows():
@@ -146,9 +138,9 @@ def seed():
             db.commit()
             logger.info(f"Inserted {north_count} north flow records")
 
-        # 5. Fetch sector daily (via EastMoney)
-        logger.info("Fetching sector data (via EastMoney)...")
-        sector_df = eastmoney.fetch_sector_daily()
+        # 5. Fetch sector daily
+        logger.info("Fetching sector data...")
+        sector_df = fetcher.fetch_sector_daily()
         if not sector_df.empty:
             sector_count = 0
             for _, row in sector_df.iterrows():
@@ -168,9 +160,9 @@ def seed():
             db.commit()
             logger.info(f"Inserted {sector_count} sector records")
 
-        # 6. Fetch market sentiment (via EastMoney)
-        logger.info("Fetching market sentiment (via EastMoney)...")
-        sentiment = eastmoney.fetch_market_sentiment()
+        # 6. Fetch market sentiment
+        logger.info("Fetching market sentiment...")
+        sentiment = fetcher.fetch_market_sentiment()
         if sentiment:
             existing = db.query(MarketSentiment).filter(
                 MarketSentiment.trade_date == sentiment["trade_date"]
