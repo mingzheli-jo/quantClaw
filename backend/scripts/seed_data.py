@@ -79,14 +79,13 @@ def seed():
         db.commit()
         logger.info(f"Inserted {count} new stock_basic records")
 
-        # 3. Fetch K-line data for a subset (top 200 by market cap / popular stocks)
-        # Use all SH/SZ main board stocks that are not ST, pick first 200
+        # 3. Fetch K-line data for all SH/SZ non-ST stocks
         popular = stock_df[
             (~stock_df["is_st"]) &
             (stock_df["market"].isin(["sh", "sz"]))
-        ].head(200)
+        ]
         codes = popular["code"].tolist()
-        logger.info(f"Fetching K-line data for {len(codes)} stocks (past 60 days)...")
+        logger.info(f"Fetching K-line data for {len(codes)} stocks (past 90 days)...")
 
         start_date = (date.today() - timedelta(days=90)).strftime("%Y%m%d")
         end_date = date.today().strftime("%Y%m%d")
