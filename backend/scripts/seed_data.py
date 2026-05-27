@@ -27,6 +27,10 @@ from app.services.data.providers.baostock_provider import BaostockProvider
 DataSourceManager.register("eastmoney", EastmoneyProvider())
 DataSourceManager.register("baostock", BaostockProvider())
 
+SEED_SOURCE = os.environ.get("SEED_SOURCE", "baostock")
+DataSourceManager.set_source(SEED_SOURCE)
+logger.info(f"Data source forced to: {SEED_SOURCE}")
+
 from app.services.data.fetcher import (
     fetch_stock_basic_list,
     fetch_daily_klines_batch,
