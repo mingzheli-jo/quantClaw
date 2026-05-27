@@ -11,6 +11,9 @@ from app.models.signal import Signal
 from app.models.stock import StockBasic, StockDaily
 from app.models.system import User
 from app.services.data.providers.eastmoney import _random_headers
+from app.services.data.smart_fetcher import SmartFetcher
+from app.services.data.providers.eastmoney import EastmoneyProvider
+from app.services.data.providers.baostock_provider import BaostockProvider
 
 logger = logging.getLogger(__name__)
 
@@ -114,6 +117,42 @@ def compare(
     return results
 
 
+def _sync_stock_data(db: Session, code: str, days: int = 90) -> int:
+    fetcher = SmartFetcher(primary=EastmoneyProvider(), fallback=BaostockProvider())
+    start_date = (date.today() - timedelta(days=days)).strftime("%Y%m%d")
+    end_date = date.today().strftime("%Y%m%d")
+    df = fetcher.fetch_daily_klines_batch([code], start_date=start_date, end_date=end_date)
+    if df.empty:
+        return 0
+    count = 0
+    for _, row in df.iterrows():
+        existing = db.query(StockDaily).filter(
+            StockDaily.code == row["code"], StockDaily.trade_date == row["trade_date"]
+        ).first()
+        if not existing:
+            db.add(StockDaily(
+                code=row["code"], trade_date=row["trade_date"],
+                open=row["open"], high=row["high"], low=row["low"], close=row["close"],
+                volume=int(row["volume"]), amount=row["amount"],
+                change_pct=row.get("change_pct"),
+            ))
+            count += 1
+    if count:
+        db.commit()
+    logger.info(f"Synced {count} kline rows for {code}")
+    return count
+
+
+@router.post("/{code}/sync")
+def sync_stock(
+    code: str,
+    db: Session = Depends(get_db),
+    user: User = Depends(get_current_user),
+):
+    count = _sync_stock_data(db, code)
+    return {"code": code, "synced": count}
+
+
 @router.get("/{code}/kline")
 def kline(
     code: str,
@@ -128,6 +167,14 @@ def kline(
         .order_by(StockDaily.trade_date)
         .all()
     )
+    if not items:
+        _sync_stock_data(db, code, days=days + 30)
+        items = (
+            db.query(StockDaily)
+            .filter(StockDaily.code == code, StockDaily.trade_date >= cutoff)
+            .order_by(StockDaily.trade_date)
+            .all()
+        )
     return [
         {
             "trade_date": str(k.trade_date),
