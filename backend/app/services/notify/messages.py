@@ -28,23 +28,27 @@ def build_post_market_card(
         elements.append({"tag": "div", "text": {"tag": "lark_md", "content": "**🔴 买入候选**"}})
         for i, sig in enumerate(signals):
             medal = ["🥇", "🥈", "🥉"][i] if i < 3 else f"{i+1}."
+            delta_text = ""
+            if sig.get("score_delta"):
+                d = sig["score_delta"]
+                delta_text = f" ({'↑' if d > 0 else '↓'}{abs(d):.0f})"
             sig_lines = [
-                f"{medal} **{sig['stock_name']}** {sig['code']}  评分 {sig['score']}/100",
+                f"{medal} **{sig['stock_name']}** {sig['code']}  评分 {sig['score']}/100{delta_text}",
                 f"现价 ¥{sig['close_price']:.2f} | 买入 ¥{sig.get('buy_low', 0):.2f}-{sig.get('buy_high', 0):.2f}",
                 f"止损 ¥{sig.get('stop_loss', 0):.2f} | 目标 ¥{sig.get('target', 0):.2f}",
                 f"📌 {sig.get('reason', '')}",
             ]
             elements.append({"tag": "div", "text": {"tag": "lark_md", "content": "\n".join(sig_lines)}})
-        if base_url:
-            elements.append({
-                "tag": "action",
-                "actions": [{
-                    "tag": "button",
-                    "text": {"tag": "plain_text", "content": "查看详情 →"},
-                    "url": f"{base_url}/scan",
-                    "type": "primary",
-                }],
-            })
+            if base_url:
+                elements.append({
+                    "tag": "action",
+                    "actions": [{
+                        "tag": "button",
+                        "text": {"tag": "plain_text", "content": f"查看 {sig['stock_name']} →"},
+                        "url": f"{base_url}/stock/{sig['code']}",
+                        "type": "default",
+                    }],
+                })
         elements.append({"tag": "hr"})
     else:
         elements.append({"tag": "div", "text": {"tag": "lark_md", "content": "**今日无买入候选** — 耐心等待更好的机会"}})

@@ -487,6 +487,14 @@ def job_post_market_analyze():
                     "target": round(sig["close"] * 1.12, 2),
                 }
             )
+        from datetime import timedelta as td
+        yesterday = today - td(days=1)
+        for sig in top_signals:
+            prev = db.query(Signal).filter(
+                Signal.code == sig["code"],
+                Signal.trade_date < today,
+            ).order_by(Signal.trade_date.desc()).first()
+            sig["score_delta"] = sig["score"] - prev.score if prev else 0
         day_idx = today.timetuple().tm_yday % len(INDICATOR_GUIDES)
         learn_tip = INDICATOR_GUIDES[day_idx]
         card = build_post_market_card(today, top_signals, pos_report, sentiment_dict, learn_tip, settings.base_url)

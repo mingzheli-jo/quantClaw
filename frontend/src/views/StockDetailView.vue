@@ -10,6 +10,14 @@
         <h2 class="stock-name">{{ score.stock_name }}</h2>
         <span class="stock-code">{{ score.code }}</span>
         <span class="total-score">综合 {{ score.score?.toFixed(1) }}</span>
+        <el-button
+          :type="isWatched ? 'warning' : 'default'"
+          :icon="isWatched ? StarFilled : Star"
+          circle
+          size="small"
+          @click="toggleWatchlist"
+          :title="isWatched ? '取消自选' : '加入自选'"
+        />
       </div>
     </div>
 
@@ -81,10 +89,11 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ArrowLeft, Star, StarFilled } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import { createChart, type IChartApi } from 'lightweight-charts'
 import { fetchKline, fetchScore, fetchSignals, type KlineItem, type StockScore, type StockSignal } from '@/api/stock'
+import { addToWatchlist, removeFromWatchlist, fetchWatchlist } from '@/api/watchlist'
 
 const route = useRoute()
 const router = useRouter()
@@ -97,6 +106,24 @@ let radarChart: echarts.ECharts | null = null
 
 const score = ref<StockScore | null>(null)
 const signalList = ref<StockSignal[]>([])
+const isWatched = ref(false)
+
+async function checkWatchlist() {
+  try {
+    const { data } = await fetchWatchlist()
+    isWatched.value = data.some((w: { code: string }) => w.code === code)
+  } catch {}
+}
+
+async function toggleWatchlist() {
+  if (isWatched.value) {
+    await removeFromWatchlist(code)
+    isWatched.value = false
+  } else {
+    await addToWatchlist(code)
+    isWatched.value = true
+  }
+}
 
 function calcMA(data: KlineItem[], period: number): (number | null)[] {
   return data.map((_, i) => {
@@ -270,6 +297,8 @@ onMounted(async () => {
   } catch {
     // API unavailable
   }
+
+  await checkWatchlist()
 
   await nextTick()
   initKline(klines, signalList.value)
